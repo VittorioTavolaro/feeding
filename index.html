@@ -33,10 +33,12 @@ td button{padding:2px 8px;background:transparent;color:var(--mu);border:1px soli
 svg{width:100%;height:auto;display:block}
 .lg{font-size:12px;color:var(--mu);display:flex;gap:14px;margin-top:4px}
 .lg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px}
+.ed{display:none}body.edit .ed{display:block}details summary{cursor:pointer;font-weight:600}
 </style>
 </head>
 <body>
 <h1>Alimentazione</h1>
+<p id="st" style="font-size:12px;color:var(--mu);margin:-6px 0 12px">Carico i dati…</p>
 
 <div class="c"><div class="g">
 <label>Peso (kg)<input id="kg" type="number" step="0.01" inputmode="decimal"></label>
@@ -57,7 +59,7 @@ svg{width:100%;height:auto;display:block}
 <div class="c"><h2>ml nelle 24h, calcolati ogni 10 min</h2><div id="ch2"></div>
 <div class="lg"><span><i style="background:var(--a)"></i>somma mobile</span><span><i style="background:var(--b)"></i>smussata</span></div></div>
 
-<div class="c"><h2>Nuovo pasto</h2><div class="g">
+<div class="c ed"><h2>Nuovo pasto</h2><div class="g">
 <label>Data<input id="d" type="date"></label>
 <label>Ora<input id="h" type="time"></label>
 <label>ml biberon<input id="ml" type="number" inputmode="numeric" placeholder="0"></label>
@@ -66,22 +68,58 @@ svg{width:100%;height:auto;display:block}
 
 <div class="c"><h2>Ultimi pasti</h2><table id="tb"></table></div>
 
-<div class="c"><h2>Incolla un dataset (sostituisce quello attuale)</h2>
+<div class="c ed"><h2>Incolla un dataset (sostituisce quello attuale)</h2>
 <textarea id="pz" rows="5" placeholder="Incolla qui da Excel, Fogli o CSV, con o senza intestazione"></textarea>
 <div class="r"><button id="pb">Sostituisci dataset</button></div><p id="pm" style="margin:8px 0 0;font-size:13px;color:var(--mu)"></p></div>
 
-<div class="c"><h2>Backup CSV</h2>
-<textarea id="csv" rows="4" placeholder="data,ora,ml_biberon,min_seno"></textarea>
-<div class="r"><button class="s" id="ex">Esporta e copia</button><button class="s" id="im">Importa (sostituisce)</button><button class="s" id="clr">Svuota</button></div></div>
+<details class="c" id="cfg"><summary>Accesso editor</summary>
+<p style="font-size:13px;color:var(--mu)">Serve solo a chi aggiunge i pasti: chi apre il link vede soltanto i grafici. Il token resta in questo browser e non viene scritto nel repository.</p>
+<div class="g"><label class="w">Repository (utente/nome)<input id="rp" autocapitalize="off" placeholder="utente/repository"></label>
+<label class="w">Token GitHub<input id="tk" type="password" autocomplete="off" placeholder="github_pat_…"></label></div>
+<div class="r"><button id="tkS">Attiva</button><button class="s" id="tkX">Esci</button></div></details>
 
 <script>
-const K='feed.v3',H=36e5,B=6e5;
-const SEED=[];
-let S={rows:SEED.map(r=>({...r})),kg:2.39,rate:1,n:6,v:3};
+const K='feed.sync1',KT='feed.cfg',H=36e5,B=6e5,FILE='data.csv';
+let S={rows:[],kg:2.39,rate:1,n:6},CFG={repo:'',tok:''};
 try{const x=localStorage.getItem(K);if(x)S=Object.assign(S,JSON.parse(x))}catch(e){}
-if(S.v!==3){S.kg=2.39;S.v=3}
+try{const x=localStorage.getItem(KT);if(x)CFG=Object.assign(CFG,JSON.parse(x))}catch(e){}
 const $=id=>document.getElementById(id);
-const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
+const cache=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
+const saveCfg=()=>{try{localStorage.setItem(KT,JSON.stringify(CFG))}catch(e){}};
+function guessRepo(){const h=location.hostname;if(!h.endsWith('.github.io'))return '';const o=h.split('.')[0],r=location.pathname.split('/')[1];return o+'/'+(r||o+'.github.io')}
+if(!CFG.repo)CFG.repo=guessRepo();
+const ED=()=>!!(CFG.tok&&CFG.repo);
+const api=()=>'https://api.github.com/repos/'+CFG.repo+'/contents/'+FILE;
+const hd=raw=>{const o={Accept:raw?'application/vnd.github.raw+json':'application/vnd.github+json'};if(CFG.tok)o.Authorization='Bearer '+CFG.tok;return o};
+function toCsv(){return '#peso_kg='+S.kg+'\n#ml_per_min_seno='+S.rate+'\ndata,ora,ml_biberon,min_seno\n'+S.rows.map(r=>[r.d,r.h,r.ml||0,r.min||0].join(',')).join('\n')+'\n'}
+function fromCsv(t){
+  const a=t.match(/^#peso_kg=([\d.,]+)/m),b=t.match(/^#ml_per_min_seno=([\d.,]+)/m);
+  if(a)S.kg=parseFloat(a[1].replace(',','.'));if(b)S.rate=parseFloat(b[1].replace(',','.'));
+  S.rows=parse(t.split(/\r?\n/).filter(l=>l[0]!=='#').join('\n'));sortRows();
+}
+let pend=0,q=Promise.resolve();
+async function load(){
+  if(pend)return;
+  let txt=null;
+  if(CFG.repo){try{const r=await fetch(api()+'?t='+Date.now(),{headers:hd(true),cache:'no-store'});if(r.ok)txt=await r.text();else if(r.status===404)txt=''}catch(e){}}
+  if(txt===null){try{const r=await fetch(FILE+'?t='+Date.now(),{cache:'no-store'});if(r.ok)txt=await r.text()}catch(e){}}
+  if(txt===null)$('st').textContent='Dati non raggiungibili: mostro l’ultima copia salvata in questo browser.';
+  else{fromCsv(txt);cache();$('st').textContent='Dati letti dal repository alle '+fh(new Date())}
+  render();
+}
+async function doCommit(msg){
+  $('st').textContent='Salvataggio…';
+  try{
+    let sha;
+    const g=await fetch(api()+'?t='+Date.now(),{headers:hd(false),cache:'no-store'});
+    if(g.ok)sha=(await g.json()).sha;else if(g.status!==404)throw new Error('lettura '+g.status);
+    const body={message:msg,content:btoa(unescape(encodeURIComponent(toCsv())))};if(sha)body.sha=sha;
+    const p=await fetch(api(),{method:'PUT',headers:Object.assign(hd(false),{'Content-Type':'application/json'}),body:JSON.stringify(body)});
+    if(!p.ok)throw new Error('scrittura '+p.status);
+    $('st').textContent='Salvato nel repository alle '+fh(new Date());
+  }catch(e){$('st').textContent='Errore nel salvataggio ('+e.message+'): le modifiche restano solo in questo browser.'}
+}
+function commit(msg){if(!ED())return;pend++;q=q.then(()=>doCommit(msg)).finally(()=>{pend--})}
 const p2=n=>String(n).padStart(2,'0');
 const fd=d=>d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());
 const fh=d=>p2(d.getHours())+':'+p2(d.getMinutes());
@@ -139,6 +177,7 @@ function chart(M,bn,id,perKg){
 
 function render(){
   $('kg').value=S.kg;$('rt').value=S.rate;$('n').value=S.n;
+  document.body.classList.toggle('edit',ED());$('kg').disabled=$('rt').disabled=!ED();
   const M=meals(),kg=+S.kg>0?+S.kg:0,pk=v=>kg?f0(v/kg)+' ml/kg/24h':'inserisci il peso';
   if(!M.length){['v1','v2','v3'].forEach(i=>$(i).textContent='–');['k1','k2','k3'].forEach(i=>$(i).textContent='');$('wn').textContent='';chart(M,{a:[]},'ch',1);chart(M,{a:[]},'ch2',0)}
   else{
@@ -151,22 +190,18 @@ function render(){
     chart(M,bn,'ch',1);chart(M,bn,'ch2',0);
   }
   const last=S.rows.map((r,i)=>({r,i})).slice(-8).reverse();
-  $('tb').innerHTML='<tr><th>Quando</th><th>ml</th><th>seno</th><th></th></tr>'+last.map(o=>'<tr><td>'+o.r.d.slice(5)+' '+o.r.h+'</td><td>'+(+o.r.ml||0)+'</td><td>'+(+o.r.min||0)+' min</td><td><button data-i="'+o.i+'" aria-label="Elimina">×</button></td></tr>').join('');
+  $('tb').innerHTML='<tr><th>Quando</th><th>ml</th><th>seno</th><th></th></tr>'+last.map(o=>'<tr><td>'+o.r.d.slice(5)+' '+o.r.h+'</td><td>'+(+o.r.ml||0)+'</td><td>'+(+o.r.min||0)+' min</td><td>'+(ED()?'<button data-i="'+o.i+'" aria-label="Elimina">×</button>':'')+'</td></tr>').join('');
 }
 function sortRows(){S.rows.sort((a,b)=>(a.d+a.h<b.d+b.h?-1:1))}
 function setNow(){const n=new Date();$('d').value=fd(n);$('h').value=fh(n)}
-function upd(){S.kg=+$('kg').value;S.rate=+$('rt').value||0;S.n=+$('n').value;save();render()}
+function upd(){const k=+$('kg').value,r=+$('rt').value||0,ch=k!==S.kg||r!==S.rate;S.kg=k;S.rate=r;S.n=+$('n').value;cache();render();if(ch)commit('Aggiorna impostazioni')}
 ['kg','rt','n'].forEach(i=>$(i).addEventListener('change',upd));
 $('add').onclick=()=>{
   if(!$('d').value||!$('h').value)return;
   S.rows.push({d:$('d').value,h:$('h').value,ml:+$('ml').value||0,min:+$('mn').value||0});
-  sortRows();save();$('ml').value='';$('mn').value='';setNow();render();
+  sortRows();cache();$('ml').value='';$('mn').value='';setNow();render();commit('Aggiungi pasto');
 };
-$('tb').onclick=e=>{const i=e.target.dataset&&e.target.dataset.i;if(i===undefined)return;S.rows.splice(+i,1);save();render()};
-$('ex').onclick=()=>{
-  const t='data,ora,ml_biberon,min_seno\n'+S.rows.map(r=>[r.d,r.h,r.ml||0,r.min||0].join(',')).join('\n');
-  $('csv').value=t;try{navigator.clipboard.writeText(t)}catch(e){}$('csv').select();
-};
+$('tb').onclick=e=>{const i=e.target.dataset&&e.target.dataset.i;if(i===undefined)return;S.rows.splice(+i,1);cache();render();commit('Elimina pasto')};
 function parse(txt){
   const L=txt.split(/\r?\n/).map(l=>l.trim()).filter(Boolean),yr=new Date().getFullYear(),out=[];
   let ib=-1,is=-1;
@@ -184,14 +219,16 @@ function parse(txt){
   return out;
 }
 function imp(txt){
-  const r=parse(txt);
+  const r=parse(txt.split(/\r?\n/).filter(l=>l[0]!=='#').join('\n'));
   if(!r.length){$('pm').textContent='Nessuna riga riconosciuta: servono data e ora in ogni riga.';return}
-  S.rows=r;sortRows();save();render();$('pm').textContent='Dataset sostituito: '+r.length+' pasti.';
+  S.rows=r;sortRows();cache();render();commit('Sostituisci dataset');$('pm').textContent='Dataset sostituito: '+r.length+' pasti.';
 }
 $('pb').onclick=()=>imp($('pz').value);
-$('im').onclick=()=>imp($('csv').value);
-$('clr').onclick=()=>{S.rows=[];save();render()};
-setNow();render();
+$('rp').value=CFG.repo;$('tk').value=CFG.tok;
+$('tkS').onclick=()=>{CFG.repo=$('rp').value.trim();CFG.tok=$('tk').value.trim();saveCfg();load()};
+$('tkX').onclick=()=>{CFG.tok='';$('tk').value='';saveCfg();load()};
+setNow();render();load();
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});
 </script>
 </body>
 </html>
