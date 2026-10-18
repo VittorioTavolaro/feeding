@@ -2,6 +2,7 @@
 #ml_per_min_seno=1
 #nascita=2026-10-05
 #eg=36+2
+#peso,2026-10-18,21:35,2390
 data,ora,ml_biberon,min_seno
 2026-10-15,05:30,40,0
 2026-10-15,09:15,20,0
