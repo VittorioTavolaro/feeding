@@ -41,7 +41,7 @@ svg{width:100%;height:auto;display:block}
 <p id="st" style="font-size:12px;color:var(--mu);margin:-6px 0 12px">Carico i dati…</p>
 
 <div class="c"><div class="g">
-<label>Peso (kg)<input id="kg" type="number" step="0.01" inputmode="decimal"></label>
+<label>Peso predefinito (kg)<input id="kg" type="number" step="0.01" inputmode="decimal"></label>
 <label>ml stimati per min di seno<input id="rt" type="number" step="0.5" inputmode="decimal"></label>
 <label class="w">Pasti usati per la proiezione<select id="n"><option>3</option><option>4</option><option>6</option><option>8</option><option>10</option></select></label>
 </div></div>
@@ -59,6 +59,24 @@ svg{width:100%;height:auto;display:block}
 <div class="c"><h2>ml nelle 24h, calcolati ogni 10 min</h2><div id="ch2"></div>
 <div class="lg"><span><i style="background:var(--a)"></i>somma mobile</span><span><i style="background:var(--b)"></i>smussata</span></div></div>
 
+<div class="c"><h2>Peso nel tempo, con curve di crescita</h2><div id="ch3"></div>
+<div class="lg"><span><i style="background:var(--b)"></i>pesate</span><span><i style="background:var(--a)"></i>Fenton 3°, 10°, 90°</span></div>
+<p id="wi" style="margin:8px 0 0;font-size:13px"></p>
+<p style="margin:6px 0 8px;font-size:12px;color:var(--mu)">Asse x: età postmestruale (età gestazionale alla nascita più età cronologica); a 40 settimane l’età corretta è zero. Curve: Fenton 2013, peso alla nascita, femmine, 22–42 settimane (oltre le 36 si discostano dalle curve di crescita complete).</p>
+<table id="tw"></table></div>
+
+<div class="c ed"><h2>Nascita</h2><div class="g">
+<label class="w">Data di nascita<input id="bd" type="date"></label>
+<label>Età gestazionale, settimane<input id="gw" type="number" inputmode="numeric" min="22" max="42"></label>
+<label>giorni<input id="gd" type="number" inputmode="numeric" min="0" max="6"></label>
+</div></div>
+
+<div class="c ed"><h2>Nuova pesata</h2><div class="g">
+<label>Data<input id="wd" type="date"></label>
+<label>Ora<input id="wh" type="time"></label>
+<label class="w">Peso (g)<input id="wg" type="number" inputmode="numeric" placeholder="2390"></label>
+</div><div class="r"><button id="wadd">Aggiungi pesata</button></div></div>
+
 <div class="c ed"><h2>Nuovo pasto</h2><div class="g">
 <label>Data<input id="d" type="date"></label>
 <label>Ora<input id="h" type="time"></label>
@@ -72,6 +90,10 @@ svg{width:100%;height:auto;display:block}
 <textarea id="pz" rows="5" placeholder="Incolla qui da Excel, Fogli o CSV, con o senza intestazione"></textarea>
 <div class="r"><button id="pb">Sostituisci dataset</button></div><p id="pm" style="margin:8px 0 0;font-size:13px;color:var(--mu)"></p></div>
 
+<div class="c"><h2>Esporta i dati</h2>
+<textarea id="csv" rows="4" readonly placeholder="data,ora,ml_biberon,min_seno"></textarea>
+<div class="r"><button class="s" id="ex">Esporta e copia</button></div><p id="em" style="margin:8px 0 0;font-size:13px;color:var(--mu)"></p></div>
+
 <details class="c" id="cfg"><summary>Accesso editor</summary>
 <p style="font-size:13px;color:var(--mu)">Serve solo a chi aggiunge i pasti: chi apre il link vede soltanto i grafici. Il token resta in questo browser e non viene scritto nel repository.</p>
 <div class="g"><label class="w">Repository (utente/nome)<input id="rp" autocapitalize="off" placeholder="utente/repository"></label>
@@ -80,7 +102,7 @@ svg{width:100%;height:auto;display:block}
 
 <script>
 const K='feed.sync1',KT='feed.cfg',H=36e5,B=6e5,FILE='data.csv';
-let S={rows:[],kg:2.39,rate:1,n:6},CFG={repo:'',tok:''};
+let S={rows:[],kg:2.39,rate:1,n:6,w:[],birth:'',ga:''},CFG={repo:'',tok:''};
 try{const x=localStorage.getItem(K);if(x)S=Object.assign(S,JSON.parse(x))}catch(e){}
 try{const x=localStorage.getItem(KT);if(x)CFG=Object.assign(CFG,JSON.parse(x))}catch(e){}
 const $=id=>document.getElementById(id);
@@ -91,11 +113,63 @@ if(!CFG.repo)CFG.repo=guessRepo();
 const ED=()=>!!(CFG.tok&&CFG.repo);
 const api=()=>'https://api.github.com/repos/'+CFG.repo+'/contents/'+FILE;
 const hd=raw=>{const o={Accept:raw?'application/vnd.github.raw+json':'application/vnd.github+json'};if(CFG.tok)o.Authorization='Bearer '+CFG.tok;return o};
-function toCsv(){return '#peso_kg='+S.kg+'\n#ml_per_min_seno='+S.rate+'\ndata,ora,ml_biberon,min_seno\n'+S.rows.map(r=>[r.d,r.h,r.ml||0,r.min||0].join(',')).join('\n')+'\n'}
+function toCsv(){return '#peso_kg='+S.kg+'\n#ml_per_min_seno='+S.rate+'\n#nascita='+(S.birth||'')+'\n#eg='+(S.ga||'')+'\n'+S.w.map(x=>'#peso,'+x.d+','+x.h+','+x.g).join('\n')+(S.w.length?'\n':'')+'data,ora,ml_biberon,min_seno\n'+S.rows.map(r=>[r.d,r.h,r.ml||0,r.min||0].join(',')).join('\n')+'\n'}
 function fromCsv(t){
   const a=t.match(/^#peso_kg=([\d.,]+)/m),b=t.match(/^#ml_per_min_seno=([\d.,]+)/m);
   if(a)S.kg=parseFloat(a[1].replace(',','.'));if(b)S.rate=parseFloat(b[1].replace(',','.'));
+  const nb=t.match(/^#nascita=(\d{4}-\d{2}-\d{2})/m),eg=t.match(/^#eg=(\d+\+\d)/m);
+  S.birth=nb?nb[1]:'';S.ga=eg?eg[1]:'';S.w=[];
+  for(const m of t.matchAll(/^#peso,(\d{4}-\d{2}-\d{2}),(\d{2}:\d{2}),(\d+)/gm))S.w.push({d:m[1],h:m[2],g:+m[3]});
+  S.w.sort((a,b)=>a.d+a.h<b.d+b.h?-1:1);
   S.rows=parse(t.split(/\r?\n/).filter(l=>l[0]!=='#').join('\n'));sortRows();
+}
+let WK=[];
+function wAt(t){
+  if(!WK.length)return +S.kg>0?+S.kg:0;
+  if(t<=WK[0].t)return WK[0].kg;
+  for(let i=1;i<WK.length;i++)if(t<=WK[i].t){const a=WK[i-1],b=WK[i];return a.kg+(b.kg-a.kg)*(t-a.t)/(b.t-a.t||1)}
+  return WK[WK.length-1].kg;
+}
+function pma(d){
+  const m=S.ga.match(/^(\d+)\+(\d)$/);if(!m||!S.birth)return null;
+  const days=Math.round((new Date(d+'T12:00')-new Date(S.birth+'T12:00'))/864e5);
+  return +m[1]+(+m[2]+days)/7;
+}
+// Fenton 2013, peso alla nascita, femmine: settimana completa, 3°, 10°, 90° percentile (g)
+const FEN=[[22,399,428,619],[23,423,470,704],[24,451,514,796],[25,476,562,912],[26,507,613,1051],[27,548,675,1194],[28,594,747,1363],[29,677,850,1554],[30,789,977,1772],[31,920,1121,2010],[32,1110,1308,2275],[33,1294,1507,2540],[34,1487,1711,2819],[35,1731,1954,3081],[36,1937,2172,3320],[37,2159,2401,3549],[38,2396,2629,3745],[39,2570,2800,3886],[40,2706,2934,4018],[41,2782,3022,4140],[42,2879,3134,4354]];
+
+function fen(x,k){
+  for(let i=1;i<FEN.length;i++){const a=FEN[i-1],b=FEN[i],xa=a[0]+.5,xb=b[0]+.5;
+    if(x>=xa&&x<=xb)return a[k]+(b[k]-a[k])*(x-xa)/(xb-xa)}
+  return null;
+}
+const sg=v=>(v<0?'−':'+')+Math.abs(v).toFixed(1).replace('.',',');
+function wchart(){
+  const P=S.w.map((x,i)=>({i,x:pma(x.d),g:x.g,d:x.d,h:x.h}));
+  const V=P.filter(p=>p.x!==null);
+  $('tw').innerHTML=S.w.length?'<tr><th>Quando</th><th>g</th><th>Età post-mestruale</th><th></th></tr>'+P.slice(-6).reverse().map(p=>'<tr><td>'+p.d.slice(5)+' '+p.h+'</td><td>'+p.g+'</td><td>'+(p.x===null?'–':p.x.toFixed(1).replace('.',',')+' sett')+'</td><td>'+(ED()?'<button data-w="'+p.i+'" aria-label="Elimina">×</button>':'')+'</td></tr>').join(''):'';
+  if(!V.length){$('ch3').innerHTML='<p class="wn" style="color:var(--mu)">'+(S.w.length?'Servono data di nascita ed età gestazionale alla nascita.':'Nessuna pesata inserita.')+'</p>';$('wi').textContent='';return}
+  const W=340,Hh=190,L=38,xs=V.map(p=>p.x);
+  let x0=Math.max(22,Math.floor(Math.min(...xs))-1),x1=Math.min(43,Math.ceil(Math.max(...xs))+2);
+  if(x1-x0<5)x1=Math.min(43,x0+5);
+  const cv=k=>FEN.filter(r=>r[0]+.5>=x0-1&&r[0]+.5<=x1+1).map(r=>[r[0]+.5,r[k]]);
+  const vis=[1,2,3].flatMap(k=>cv(k).filter(p=>p[0]>=x0&&p[0]<=x1).map(p=>p[1])).concat(V.map(p=>p.g));
+  const lo=Math.floor(Math.min(...vis)*.9/100)*100,mx=Math.ceil(Math.max(...vis)*1.05/100)*100;
+  const X=x=>L+(x-x0)/(x1-x0)*(W-L-6),Y=v=>Hh-20-(v-lo)/(mx-lo||1)*(Hh-32);
+  const sp=(mx-lo)/5,pw=Math.pow(10,Math.floor(Math.log10(sp||1))),st=[1,2,2.5,5,10].map(m=>m*pw).find(v=>v>=sp)||pw*10;
+  let G='';
+  for(let v=Math.ceil(lo/st)*st;v<=mx;v+=st)G+='<line x1="'+L+'" x2="'+(W-6)+'" y1="'+Y(v).toFixed(1)+'" y2="'+Y(v).toFixed(1)+'" stroke="var(--mu)" stroke-opacity=".3"/><text x="'+(L-4)+'" y="'+(Y(v)+3).toFixed(1)+'" font-size="10" fill="var(--mu)" text-anchor="end">'+f0(v)+'</text>';
+  const ev=x1-x0>12?2:1;
+  for(let w=Math.ceil(x0);w<=x1;w++){if((w-Math.ceil(x0))%ev)continue;
+    G+='<line x1="'+X(w).toFixed(1)+'" x2="'+X(w).toFixed(1)+'" y1="'+Y(mx).toFixed(1)+'" y2="'+Y(lo).toFixed(1)+'" stroke="var(--mu)" stroke-opacity="'+(w===40?.6:.2)+'"/><text x="'+X(w).toFixed(1)+'" y="'+(Hh-6)+'" font-size="9" fill="var(--mu)" text-anchor="middle">'+w+(w===40?' (termine)':'')+'</text>'}
+  const line=(pts,dash)=>'<polyline fill="none" stroke="var(--a)" stroke-width="1.6" '+(dash?'stroke-dasharray="4 3" ':'')+'points="'+pts.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' ')+'"/>';
+  const mine=V.map(p=>[p.x,p.g]);
+  const dots=mine.map(p=>'<circle cx="'+X(p[0]).toFixed(1)+'" cy="'+Y(p[1]).toFixed(1)+'" r="3" fill="var(--b)"/>').join('');
+  $('ch3').innerHTML='<svg viewBox="0 0 '+W+' '+Hh+'">'+G+'<clipPath id="cp"><rect x="'+L+'" y="0" width="'+(W-L-6)+'" height="'+(Hh-20)+'"/></clipPath><g clip-path="url(#cp)">'+line(cv(1))+line(cv(2),1)+line(cv(3))
+    +(mine.length>1?'<polyline fill="none" stroke="var(--b)" stroke-width="2.2" stroke-linejoin="round" points="'+mine.map(p=>X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join(' ')+'"/>':'')+dots+'</g></svg>';
+  const z=V[V.length-1],gg=fen(z.x,1)===null?null:z.g<fen(z.x,1)?'sotto il 3° centile':z.g<fen(z.x,2)?'tra il 3° e il 10° centile':z.g<=fen(z.x,3)?'tra il 10° e il 90° centile':'sopra il 90° centile';
+  const gdays=Math.round((new Date(z.d+'T12:00')-new Date(S.birth+'T12:00'))/864e5);
+  $('wi').textContent='Ultima pesata: '+z.g+' g, '+gdays+' giorni di vita, età post-mestruale '+z.x.toFixed(1).replace('.',',')+' sett, età corretta '+sg(z.x-40)+' sett'+(gg?', '+gg+' (Fenton 2013)':'')+'.';
 }
 let pend=0,q=Promise.resolve();
 async function load(){
@@ -127,25 +201,13 @@ const f0=x=>Math.round(x).toLocaleString('it-IT');
 
 function meals(){return S.rows.map(r=>({t:new Date(r.d+'T'+r.h).getTime(),ml:(+r.ml||0)+(+r.min||0)*S.rate})).filter(m=>!isNaN(m.t)).sort((a,b)=>a.t-b.t)}
 function raw(M,T){let s=0;for(const m of M)if(m.t>T-24*H&&m.t<=T)s+=m.ml;return s}
-// ml di ogni pasto distribuiti sui blocchi da 10 min tra il pasto precedente e quello stesso
-function bins(M){
-  if(M.length<2)return{t0:0,a:[]};
-  const t0=Math.floor(M[0].t/B)*B,n=Math.floor((M[M.length-1].t-t0)/B)+1,a=new Array(n).fill(0);
-  for(let i=1;i<M.length;i++){
-    const s=M[i-1].t,e=M[i].t;if(e<=s)continue;
-    const r=M[i].ml/((e-s)/6e4);
-    for(let k=Math.floor((s-t0)/B);k<=Math.floor((e-t0)/B)&&k<n;k++){
-      const lo=Math.max(s,t0+k*B),hi=Math.min(e,t0+(k+1)*B);
-      if(hi>lo)a[k]+=r*(hi-lo)/6e4;
-    }
-  }
-  return{t0,a};
-}
+// smussata: i ml di ogni pasto sono distribuiti in modo uniforme tra il pasto precedente e il pasto stesso.
+// La somma nella finestra (T-24h, T] e l integrale esatto: coincide con la somma di blocchi da 10 min allineati a T.
+function bins(M){const Mm=[];for(const m of M){const l=Mm[Mm.length-1];if(l&&l.t===m.t)l.ml+=m.ml;else Mm.push({t:m.t,ml:m.ml})}return{M:Mm}}
 function smooth(bn,T){
-  if(!bn.a.length)return 0;
-  const k=Math.max(0,Math.min(Math.ceil((T-bn.t0)/B)-1,bn.a.length-1));let s=0;
-  for(let j=Math.max(0,k-143);j<=k;j++)s+=bn.a[j];
-  return s;
+  const M=bn.M;if(!M||M.length<2)return 0;
+  const cu=t=>{let c=0;for(let i=1;i<M.length;i++){const a=M[i-1].t,e=M[i].t;if(t<=a)break;c+=M[i].ml*(Math.min(t,e)-a)/(e-a)}return c};
+  return cu(T)-cu(T-24*H);
 }
 function proj(M,N){
   const sl=M.slice(-N);if(sl.length<2)return null;
@@ -154,12 +216,12 @@ function proj(M,N){
 }
 
 function chart(M,bn,id,perKg){
-  const kg=perKg?+S.kg:1;
-  if(M.length<2||!(kg>0)){$(id).innerHTML='<p class="wn" style="color:var(--mu)">Servono almeno 2 pasti e il peso.</p>';return}
+  const kgAt=t=>perKg?wAt(t):1;
+  if(M.length<2||!(kgAt(M[0].t)>0)){$(id).innerHTML='<p class="wn" style="color:var(--mu)">Servono almeno 2 pasti e il peso.</p>';return}
   const W=340,Hh=160,L=34,T1=M[M.length-1].t;let T0=M[0].t;
   if(T1-T0>=24*H)T0+=24*H;
   const P=[];for(let t=T0;t<T1;t+=B)P.push(t);P.push(T1);
-  const A=P.map(t=>raw(M,t)/kg),Bs=P.map(t=>smooth(bn,t)/kg),all=A.concat(Bs),lo=Math.floor(Math.min(...all)*.9),mx=Math.ceil(Math.max(...all)*1.05)||1;
+  const A=P.map(t=>raw(M,t)/kgAt(t)),Bs=P.map(t=>smooth(bn,t)/kgAt(t)),all=A.concat(Bs),lo=Math.floor(Math.min(...all)*.9),mx=Math.ceil(Math.max(...all)*1.05)||1;
   const X=t=>L+(t-T0)/(T1-T0||1)*(W-L-6),Y=v=>Hh-18-(v-lo)/(mx-lo||1)*(Hh-30);
   const pl=(arr,c)=>'<polyline fill="none" stroke="var('+c+')" stroke-width="2" stroke-linejoin="round" points="'+arr.map((v,i)=>X(P[i]).toFixed(1)+','+Y(v).toFixed(1)).join(' ')+'"/>';
   const sp=(mx-lo)/4,pw=Math.pow(10,Math.floor(Math.log10(sp||1))),st=[1,2,2.5,5,10].map(m=>m*pw).find(v=>v>=sp)||pw*10;
@@ -178,7 +240,10 @@ function chart(M,bn,id,perKg){
 function render(){
   $('kg').value=S.kg;$('rt').value=S.rate;$('n').value=S.n;
   document.body.classList.toggle('edit',ED());$('kg').disabled=$('rt').disabled=!ED();
-  const M=meals(),kg=+S.kg>0?+S.kg:0,pk=v=>kg?f0(v/kg)+' ml/kg/24h':'inserisci il peso';
+  WK=S.w.map(x=>({t:new Date(x.d+'T'+x.h).getTime(),kg:x.g/1000})).filter(x=>!isNaN(x.t)).sort((a,b)=>a.t-b.t);
+  $('bd').value=S.birth;{const m=S.ga.match(/^(\d+)\+(\d)$/);$('gw').value=m?m[1]:'';$('gd').value=m?m[2]:''}
+  $('bd').disabled=$('gw').disabled=$('gd').disabled=!ED();
+  const M=meals(),kg=M.length?wAt(M[M.length-1].t):0,pk=v=>kg?f0(v/kg)+' ml/kg/24h (peso '+(kg*1000).toFixed(0)+' g)':'inserisci il peso';
   if(!M.length){['v1','v2','v3'].forEach(i=>$(i).textContent='–');['k1','k2','k3'].forEach(i=>$(i).textContent='');$('wn').textContent='';chart(M,{a:[]},'ch',1);chart(M,{a:[]},'ch2',0)}
   else{
     const T=M[M.length-1].t,bn=bins(M),a=raw(M,T),b=smooth(bn,T),p=proj(M,+S.n);
@@ -191,9 +256,10 @@ function render(){
   }
   const last=S.rows.map((r,i)=>({r,i})).slice(-8).reverse();
   $('tb').innerHTML='<tr><th>Quando</th><th>ml</th><th>seno</th><th></th></tr>'+last.map(o=>'<tr><td>'+o.r.d.slice(5)+' '+o.r.h+'</td><td>'+(+o.r.ml||0)+'</td><td>'+(+o.r.min||0)+' min</td><td>'+(ED()?'<button data-i="'+o.i+'" aria-label="Elimina">×</button>':'')+'</td></tr>').join('');
+  wchart();
 }
 function sortRows(){S.rows.sort((a,b)=>(a.d+a.h<b.d+b.h?-1:1))}
-function setNow(){const n=new Date();$('d').value=fd(n);$('h').value=fh(n)}
+function setNow(){const n=new Date();$('d').value=fd(n);$('h').value=fh(n);$('wd').value=fd(n);$('wh').value=fh(n)}
 function upd(){const k=+$('kg').value,r=+$('rt').value||0,ch=k!==S.kg||r!==S.rate;S.kg=k;S.rate=r;S.n=+$('n').value;cache();render();if(ch)commit('Aggiorna impostazioni')}
 ['kg','rt','n'].forEach(i=>$(i).addEventListener('change',upd));
 $('add').onclick=()=>{
@@ -224,6 +290,11 @@ function imp(txt){
   S.rows=r;sortRows();cache();render();commit('Sostituisci dataset');$('pm').textContent='Dataset sostituito: '+r.length+' pasti.';
 }
 $('pb').onclick=()=>imp($('pz').value);
+$('wadd').onclick=()=>{const d=$('wd').value,t=$('wh').value,g=+$('wg').value;if(!d||!t||!(g>0))return;S.w.push({d,h:t,g});S.w.sort((a,b)=>a.d+a.h<b.d+b.h?-1:1);cache();$('wg').value='';render();commit('Aggiungi pesata')};
+$('tw').onclick=e=>{const i=e.target.dataset&&e.target.dataset.w;if(i===undefined)return;S.w.splice(+i,1);cache();render();commit('Elimina pesata')};
+const nbUp=()=>{const w=+$('gw').value,d=+$('gd').value||0;S.birth=$('bd').value;S.ga=(w>=22&&w<=42&&d>=0&&d<=6)?w+'+'+d:'';cache();render();commit('Aggiorna dati di nascita')};
+['bd','gw','gd'].forEach(i=>$(i).addEventListener('change',nbUp));
+$('ex').onclick=async()=>{const t=toCsv();$('csv').value=t;let ok=false;try{await navigator.clipboard.writeText(t);ok=true}catch(e){}$('csv').select();$('em').textContent=ok?'Copiato negli appunti.':'Seleziona il testo e copialo a mano.'};
 $('rp').value=CFG.repo;$('tk').value=CFG.tok;
 $('tkS').onclick=()=>{CFG.repo=$('rp').value.trim();CFG.tok=$('tk').value.trim();saveCfg();load()};
 $('tkX').onclick=()=>{CFG.tok='';$('tk').value='';saveCfg();load()};
