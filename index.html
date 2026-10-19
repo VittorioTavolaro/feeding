@@ -48,22 +48,27 @@ svg{width:100%;height:auto;display:block}
 
 <p class="wn" id="wn"></p>
 <div class="g" style="margin-bottom:12px">
+<div class="c m w"><span>Ultimo pasto</span><b id="v0">–</b><span id="k0"></span></div>
 <div class="c m a"><span>Ultime 24h, somma mobile</span><b id="v1">–</b><span id="k1"></span></div>
 <div class="c m b"><span>Ultime 24h, smussate a 10 min</span><b id="v2">–</b><span id="k2"></span></div>
 <div class="c m w"><span>Proiezione sulle ultime 24h dai pasti recenti</span><b id="v3">–</b><span id="k3"></span></div>
 </div>
 
-<div class="c"><h2>ml/kg/24h nel tempo, calcolati ogni 10 min</h2><div id="ch"></div>
-<div class="lg"><span><i style="background:var(--a)"></i>somma mobile</span><span><i style="background:var(--b)"></i>smussata</span></div></div>
+<div class="c"><h2>ml/kg/24h (sinistra) e ml nelle 24h (destra), ogni 10 min</h2><div id="ch"></div>
+<div class="lg"><span><i style="background:var(--a)"></i>somma mobile</span><span><i style="background:var(--b)"></i>smussata</span><span>continua: ml/kg · tratteggio: ml</span></div></div>
 
-<div class="c"><h2>ml nelle 24h, calcolati ogni 10 min</h2><div id="ch2"></div>
-<div class="lg"><span><i style="background:var(--a)"></i>somma mobile</span><span><i style="background:var(--b)"></i>smussata</span></div></div>
+<div class="c"><h2>ml per pasto nel tempo</h2><div id="ch5"></div>
+<div class="lg"><span><i style="background:var(--a)"></i>biberon</span><span><i style="background:var(--b)"></i>seno stimato</span></div></div>
 
 <div class="c"><h2>Peso nel tempo, con curve di crescita</h2><div id="ch3"></div>
 <div class="lg"><span><i style="background:var(--b)"></i>pesate</span><span><i style="background:var(--a)"></i>Fenton 3°, 10°, 90°</span></div>
 <p id="wi" style="margin:8px 0 0;font-size:13px"></p>
 <p style="margin:6px 0 8px;font-size:12px;color:var(--mu)">Asse x: età postmestruale (età gestazionale alla nascita più età cronologica); a 40 settimane l’età corretta è zero. Curve: Fenton 2013, peso alla nascita, femmine, 22–42 settimane (oltre le 36 si discostano dalle curve di crescita complete).</p>
 <table id="tw"></table></div>
+
+<div class="c"><h2>Peso per età corretta, curve OMS</h2><div id="ch4"></div>
+<p id="wi2" style="margin:8px 0 0;font-size:13px"></p>
+<p style="margin:6px 0 0;font-size:12px;color:var(--mu)">Asse x: età corretta in settimane (età post-mestruale meno 40; negativa prima del termine, dove le curve OMS non esistono). Curve: standard OMS peso per età, femmine, 0–13 settimane, percentili 1, 3, 15, 50, 85, 97, 99.</p></div>
 
 <div class="c ed"><h2>Nascita</h2><div class="g">
 <label class="w">Data di nascita<input id="bd" type="date"></label>
@@ -171,6 +176,35 @@ function wchart(){
   const gdays=Math.round((new Date(z.d+'T12:00')-new Date(S.birth+'T12:00'))/864e5);
   $('wi').textContent='Ultima pesata: '+z.g+' g, '+gdays+' giorni di vita, età post-mestruale '+z.x.toFixed(1).replace('.',',')+' sett, età corretta '+sg(z.x-40)+' sett'+(gg?', '+gg+' (Fenton 2013)':'')+'.';
 }
+
+// OMS peso per eta, femmine, settimane 0-13: L, M, S
+const WHO=[[.3809,3.2322,.14171],[.2671,3.3388,.146],[.2304,3.5693,.14339],[.2024,3.8352,.1406],[.1789,4.0987,.13805],[.1582,4.3476,.13583],[.1395,4.5793,.13392],[.1224,4.795,.13228],[.1065,4.9959,.13087],[.0918,5.1842,.12966],[.0779,5.3618,.12861],[.0648,5.5295,.1277],[.0525,5.6883,.12691],[.0407,5.8393,.12622]];
+const WZ=[[1,-2.3263],[3,-1.8808],[15,-1.0364],[50,0],[85,1.0364],[97,1.8808],[99,2.3263]];
+const whoKg=(w,z)=>{const r=WHO[w];return r[1]*Math.pow(1+r[0]*r[2]*z,1/r[0])};
+function wchart2(){
+  const V=S.w.map(x=>({x:pma(x.d),g:x.g,d:x.d})).filter(p=>p.x!==null).map(p=>({a:p.x-40,g:p.g,d:p.d}));
+  if(!V.length){$('ch4').innerHTML='<p class="wn" style="color:var(--mu)">'+(S.w.length?'Servono data di nascita ed età gestazionale alla nascita.':'Nessuna pesata inserita.')+'</p>';$('wi2').textContent='';return}
+  const W=340,Hh=200,L=34,R=26,as=V.map(p=>p.a);
+  const x0=Math.min(-4,Math.floor(Math.min(...as))),x1=Math.min(13,Math.max(12,Math.ceil(Math.max(...as))));
+  const vis=V.map(p=>p.g/1000);for(let w=Math.max(0,Math.ceil(x0));w<=x1;w++){vis.push(whoKg(w,-2.3263),whoKg(w,2.3263))}
+  const lo=Math.floor(Math.min(...vis)),mx=Math.ceil(Math.max(...vis)),stp=(mx-lo)>5?1:.5;
+  const X=a=>L+(a-x0)/(x1-x0)*(W-L-R),Y=v=>Hh-20-(v-lo)/(mx-lo||1)*(Hh-32);
+  let G='';
+  for(let v=lo;v<=mx+1e-9;v+=stp)G+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(v).toFixed(1)+'" y2="'+Y(v).toFixed(1)+'" stroke="var(--mu)" stroke-opacity=".3"/><text x="'+(L-4)+'" y="'+(Y(v)+3).toFixed(1)+'" font-size="10" fill="var(--mu)" text-anchor="end">'+v.toString().replace('.',',')+'</text>';
+  const ev=x1-x0>14?2:1;
+  for(let w=x0;w<=x1;w++){if((w-x0)%ev)continue;G+='<line x1="'+X(w).toFixed(1)+'" x2="'+X(w).toFixed(1)+'" y1="'+Y(mx).toFixed(1)+'" y2="'+Y(lo).toFixed(1)+'" stroke="var(--mu)" stroke-opacity="'+(w===0?.6:.2)+'"/><text x="'+X(w).toFixed(1)+'" y="'+(Hh-6)+'" font-size="9" fill="var(--mu)" text-anchor="middle">'+(w<0?'−'+(-w):w)+'</text>'}
+  const dsh={1:'2 2',3:'4 3',99:'2 2',97:'4 3'};let C='',lab=[];
+  for(const [p,z] of WZ){const pts=[];for(let w=0;w<=x1;w++)pts.push(X(w).toFixed(1)+','+Y(whoKg(w,z)).toFixed(1));
+    C+='<polyline fill="none" stroke="var(--a)" stroke-width="'+(p===50?1:1.7)+'" '+(dsh[p]?'stroke-dasharray="'+dsh[p]+'" ':'')+'points="'+pts.join(' ')+'"/>';
+    lab.push([p,Y(whoKg(x1,z))])}
+  lab.sort((a,b)=>a[1]-b[1]);for(let i=1;i<lab.length;i++)if(lab[i][1]<lab[i-1][1]+8)lab[i][1]=lab[i-1][1]+8;
+  const T=lab.map(l=>'<text x="'+(W-R+3)+'" y="'+(l[1]+3).toFixed(1)+'" font-size="9" fill="var(--mu)">'+l[0]+'</text>').join('');
+  const mine=V.map(p=>[X(p.a),Y(p.g/1000)]);
+  const D=(mine.length>1?'<polyline fill="none" stroke="var(--b)" stroke-width="2.2" stroke-linejoin="round" points="'+mine.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'"/>':'')+mine.map(p=>'<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="3" fill="var(--b)"/>').join('');
+  $('ch4').innerHTML='<svg viewBox="0 0 '+W+' '+Hh+'">'+G+'<clipPath id="cp2"><rect x="'+L+'" y="0" width="'+(W-L-R)+'" height="'+(Hh-20)+'"/></clipPath><g clip-path="url(#cp2)">'+C+D+'</g>'+T+'<text x="'+L+'" y="10" font-size="9" fill="var(--mu)">kg</text></svg>';
+  const z=V[V.length-1];
+  $('wi2').textContent='Ultima pesata: '+z.g+' g a '+sg(z.a)+' settimane di età corretta'+(z.a<0?' (prima del termine: nessuna curva OMS)':'')+'.';
+}
 let pend=0,q=Promise.resolve();
 async function load(){
   if(pend)return;
@@ -215,26 +249,49 @@ function proj(M,N){
   return sl.slice(1).reduce((s,m)=>s+m.ml,0)/span*24;
 }
 
-function chart(M,bn,id,perKg){
-  const kgAt=t=>perKg?wAt(t):1;
-  if(M.length<2||!(kgAt(M[0].t)>0)){$(id).innerHTML='<p class="wn" style="color:var(--mu)">Servono almeno 2 pasti e il peso.</p>';return}
-  const W=340,Hh=160,L=34,T1=M[M.length-1].t;let T0=M[0].t;
-  if(T1-T0>=24*H)T0+=24*H;
-  const P=[];for(let t=T0;t<T1;t+=B)P.push(t);P.push(T1);
-  const A=P.map(t=>raw(M,t)/kgAt(t)),Bs=P.map(t=>smooth(bn,t)/kgAt(t)),all=A.concat(Bs),lo=Math.floor(Math.min(...all)*.9),mx=Math.ceil(Math.max(...all)*1.05)||1;
-  const X=t=>L+(t-T0)/(T1-T0||1)*(W-L-6),Y=v=>Hh-18-(v-lo)/(mx-lo||1)*(Hh-30);
-  const pl=(arr,c)=>'<polyline fill="none" stroke="var('+c+')" stroke-width="2" stroke-linejoin="round" points="'+arr.map((v,i)=>X(P[i]).toFixed(1)+','+Y(v).toFixed(1)).join(' ')+'"/>';
-  const sp=(mx-lo)/4,pw=Math.pow(10,Math.floor(Math.log10(sp||1))),st=[1,2,2.5,5,10].map(m=>m*pw).find(v=>v>=sp)||pw*10;
-  let G='';for(let v=Math.ceil(lo/st)*st;v<=mx;v+=st)G+='<line x1="'+L+'" x2="'+(W-6)+'" y1="'+Y(v).toFixed(1)+'" y2="'+Y(v).toFixed(1)+'" stroke="var(--mu)" stroke-opacity=".3"/><text x="'+(L-4)+'" y="'+(Y(v)+3).toFixed(1)+'" font-size="10" fill="var(--mu)" text-anchor="end">'+f0(v)+'</text>';
-  let V='';const b0=new Date(T0);
-  for(let k=0;k<400;k++){const dd=new Date(b0.getFullYear(),b0.getMonth(),b0.getDate(),k*3),t=dd.getTime();
+function nice(lo,hi,n){const sp=(hi-lo)/n||1,pw=Math.pow(10,Math.floor(Math.log10(sp))),st=[1,2,2.5,5,10].map(m=>m*pw).find(v=>v>=sp)||pw*10;return{lo:Math.floor(lo/st+1e-9)*st,hi:Math.ceil(hi/st-1e-9)*st,st}}
+const sx=(x,y,s,an)=>'<text x="'+x+'" y="'+y+'" font-size="10" fill="var(--mu)" text-anchor="'+an+'">'+s+'</text>';
+function vlines(T0,T1,X,ya,yb,Hh){
+  const hs=(T1-T0)<=96*H?3:6,b0=new Date(T0),pxh=(X(T1)-X(T0))/((T1-T0)/H),ls=[3,6,12,24].find(s=>s*pxh>=30)||24;let V='';
+  for(let k=0;k<2000;k++){const dd=new Date(b0.getFullYear(),b0.getMonth(),b0.getDate(),k*hs),t=dd.getTime();
     if(t>T1)break;if(t<T0)continue;
     const x=X(t).toFixed(1),hh=dd.getHours();
-    V+='<line x1="'+x+'" x2="'+x+'" y1="'+Y(mx).toFixed(1)+'" y2="'+Y(lo).toFixed(1)+'" stroke="var(--mu)" stroke-opacity="'+(hh?.2:.5)+'"/><text x="'+x+'" y="'+(Hh-5)+'" font-size="9" fill="var(--mu)" text-anchor="middle">'+(hh?p2(hh):p2(dd.getDate())+'/'+p2(dd.getMonth()+1))+'</text>';}
-  const tx=(x,y,s,an)=>'<text x="'+x+'" y="'+y+'" font-size="10" fill="var(--mu)" text-anchor="'+an+'">'+s+'</text>';
-  $(id).innerHTML='<svg viewBox="0 0 '+W+' '+Hh+'">'+G+''
-   +V
-   +pl(A,'--a')+pl(Bs,'--b')+'</svg>';
+    V+='<line x1="'+x+'" x2="'+x+'" y1="'+ya.toFixed(1)+'" y2="'+yb.toFixed(1)+'" stroke="var(--mu)" stroke-opacity="'+(hh?.2:.5)+'"/><text x="'+x+'" y="'+(Hh-5)+'" font-size="9" fill="var(--mu)" text-anchor="middle">'+(hh%ls?'':hh?p2(hh):p2(dd.getDate())+'/'+p2(dd.getMonth()+1))+'</text>';}
+  return V;
+}
+const hl=(y,x1,x2)=>'<line x1="'+x1+'" x2="'+x2+'" y1="'+y.toFixed(1)+'" y2="'+y.toFixed(1)+'" stroke="var(--mu)" stroke-opacity=".3"/>';
+// un solo grafico con due assi: ml/kg/24h a sinistra (linee continue), ml/24h a destra (tratteggio)
+function chart(M,bn,id){
+  if(M.length<2||!(wAt(M[0].t)>0)){$(id).innerHTML='<p class="wn" style="color:var(--mu)">Servono almeno 2 pasti e il peso.</p>';return}
+  const W=340,Hh=210,L=38,R=40,T1=M[M.length-1].t;let T0=M[0].t;
+  if(T1-T0>=24*H)T0+=24*H;T0=Math.max(T0,T1-168*H);
+  const P=[];for(let t=T0;t<T1;t+=B)P.push(t);P.push(T1);
+  const A=P.map(t=>raw(M,t)),Bs=P.map(t=>smooth(bn,t)),Ak=A.map((v,i)=>v/wAt(P[i])),Bk=Bs.map((v,i)=>v/wAt(P[i]));
+  const nl=nice(Math.min(...Ak,...Bk)*.97,Math.max(...Ak,...Bk)*1.03,4),nr=nice(Math.min(...A,...Bs)*.97,Math.max(...A,...Bs)*1.03,4);
+  const X=t=>L+(t-T0)/(T1-T0||1)*(W-L-R),Yl=v=>Hh-20-(v-nl.lo)/(nl.hi-nl.lo||1)*(Hh-44),Yr=v=>Hh-20-(v-nr.lo)/(nr.hi-nr.lo||1)*(Hh-44);
+  const pl=(arr,Y,c,dash)=>'<polyline fill="none" stroke="var('+c+')" stroke-width="'+(dash?1.6:2)+'" stroke-linejoin="round" '+(dash?'stroke-dasharray="4 3" ':'')+'points="'+arr.map((v,i)=>X(P[i]).toFixed(1)+','+Y(v).toFixed(1)).join(' ')+'"/>';
+  let G='';
+  for(let v=nl.lo;v<=nl.hi+1e-9;v+=nl.st)G+=hl(Yl(v),L,W-R)+sx(L-4,Yl(v)+3,f0(v),'end');
+  for(let v=nr.lo;v<=nr.hi+1e-9;v+=nr.st)G+='<line x1="'+(W-R)+'" x2="'+(W-R+3)+'" y1="'+Yr(v).toFixed(1)+'" y2="'+Yr(v).toFixed(1)+'" stroke="var(--mu)"/>'+sx(W-R+5,Yr(v)+3,f0(v),'start');
+  $(id).innerHTML='<svg viewBox="0 0 '+W+' '+Hh+'">'+G+vlines(T0,T1,X,Yl(nl.hi),Yl(nl.lo),Hh)
+    +sx(L,12,'ml/kg/24h (continua)','start')+sx(W-R+8,12,'ml/24h (tratteggio)','end')
+    +pl(Ak,Yl,'--a')+pl(Bk,Yl,'--b')+pl(A,Yr,'--a',1)+pl(Bs,Yr,'--b',1)+'</svg>';
+}
+function mealchart(id){
+  const rs=S.rows.map(r=>({t:new Date(r.d+'T'+r.h).getTime(),b:+r.ml||0,s:(+r.min||0)*S.rate})).filter(r=>!isNaN(r.t)).sort((a,b)=>a.t-b.t);
+  if(!rs.length){$(id).innerHTML='<p class="wn" style="color:var(--mu)">Nessun pasto.</p>';return}
+  const W=340,Hh=190,L=38,R=8,last=rs[rs.length-1].t,T1=last+1.5*H,T0=Math.max(rs[0].t,last-168*H)-1.5*H,vs=rs.filter(r=>r.t>=T0);
+  const n=nice(0,Math.max(...vs.map(r=>r.b+r.s))*1.08,4);
+  const X=t=>L+(t-T0)/(T1-T0)*(W-L-R),Y=v=>Hh-20-(v-n.lo)/(n.hi-n.lo||1)*(Hh-32),bw=Math.max(2,Math.min(8,(W-L-R)*1.2*H/(T1-T0)));
+  let G='';for(let v=n.lo;v<=n.hi+1e-9;v+=n.st)G+=hl(Y(v),L,W-R)+sx(L-4,Y(v)+3,f0(v),'end');
+  const bars=vs.map(r=>{const x=(X(r.t)-bw/2).toFixed(1),yb=Y(r.b),ys=Y(r.b+r.s);
+    return '<rect x="'+x+'" y="'+yb.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+(Y(0)-yb).toFixed(1)+'" fill="var(--a)"/>'+(r.s>0?'<rect x="'+x+'" y="'+ys.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+(yb-ys).toFixed(1)+'" fill="var(--b)"/>':'')}).join('');
+  $(id).innerHTML='<svg viewBox="0 0 '+W+' '+Hh+'">'+G+vlines(T0,T1,X,Y(n.hi),Y(0),Hh)+bars+'</svg>';
+}
+function lastMeal(){
+  const r=S.rows[S.rows.length-1],t=new Date(r.d+'T'+r.h).getTime(),ml=+r.ml||0,mn=+r.min||0,ago=Math.max(0,Date.now()-t),hh=Math.floor(ago/H),mm=Math.floor(ago%H/6e4);
+  $('v0').textContent=f0(ml+mn*S.rate)+' ml';
+  $('k0').textContent=r.d.slice(8)+'/'+r.d.slice(5,7)+' '+r.h+' · biberon '+ml+' ml'+(mn?' + seno '+mn+' min':'')+' · '+(hh?hh+' h ':'')+mm+' min fa';
 }
 
 function render(){
@@ -244,7 +301,7 @@ function render(){
   $('bd').value=S.birth;{const m=S.ga.match(/^(\d+)\+(\d)$/);$('gw').value=m?m[1]:'';$('gd').value=m?m[2]:''}
   $('bd').disabled=$('gw').disabled=$('gd').disabled=!ED();
   const M=meals(),kg=M.length?wAt(M[M.length-1].t):0,pk=v=>kg?f0(v/kg)+' ml/kg/24h (peso '+(kg*1000).toFixed(0)+' g)':'inserisci il peso';
-  if(!M.length){['v1','v2','v3'].forEach(i=>$(i).textContent='–');['k1','k2','k3'].forEach(i=>$(i).textContent='');$('wn').textContent='';chart(M,{a:[]},'ch',1);chart(M,{a:[]},'ch2',0)}
+  if(!M.length){['v0','v1','v2','v3'].forEach(i=>$(i).textContent='–');['k0','k1','k2','k3'].forEach(i=>$(i).textContent='');$('wn').textContent='';chart(M,{a:[]},'ch');mealchart('ch5')}
   else{
     const T=M[M.length-1].t,bn=bins(M),a=raw(M,T),b=smooth(bn,T),p=proj(M,+S.n);
     $('v1').textContent=f0(a)+' ml';$('k1').textContent=pk(a);
@@ -252,11 +309,11 @@ function render(){
     $('v3').textContent=p===null?'–':f0(p)+' ml';$('k3').textContent=p===null?'servono almeno 2 pasti':pk(p);
     const sp=(T-M[0].t)/H;
     $('wn').textContent=sp<24?'I dati coprono '+sp.toFixed(1).replace('.',',')+' h: le somme a 24h sono parziali, la proiezione è più indicativa. Calcoli riferiti all’ultimo pasto ('+fh(new Date(T))+').':'Calcoli riferiti all’ultimo pasto ('+fh(new Date(T))+'). Il primo pasto non entra nella versione smussata.';
-    chart(M,bn,'ch',1);chart(M,bn,'ch2',0);
+    lastMeal();chart(M,bn,'ch');mealchart('ch5');
   }
   const last=S.rows.map((r,i)=>({r,i})).slice(-8).reverse();
   $('tb').innerHTML='<tr><th>Quando</th><th>ml</th><th>seno</th><th></th></tr>'+last.map(o=>'<tr><td>'+o.r.d.slice(5)+' '+o.r.h+'</td><td>'+(+o.r.ml||0)+'</td><td>'+(+o.r.min||0)+' min</td><td>'+(ED()?'<button data-i="'+o.i+'" aria-label="Elimina">×</button>':'')+'</td></tr>').join('');
-  wchart();
+  wchart();wchart2();
 }
 function sortRows(){S.rows.sort((a,b)=>(a.d+a.h<b.d+b.h?-1:1))}
 function setNow(){const n=new Date();$('d').value=fd(n);$('h').value=fh(n);$('wd').value=fd(n);$('wh').value=fh(n)}
