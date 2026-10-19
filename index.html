@@ -54,8 +54,11 @@ svg{width:100%;height:auto;display:block}
 <div class="c m w"><span>Proiezione sulle ultime 24h dai pasti recenti</span><b id="v3">–</b><span id="k3"></span></div>
 </div>
 
-<div class="c"><h2>ml/kg/24h (sinistra) e ml nelle 24h (destra), ogni 10 min</h2><div id="ch"></div>
-<div class="lg"><span><i style="background:var(--a)"></i>somma mobile</span><span><i style="background:var(--b)"></i>smussata</span><span>continua: ml/kg · tratteggio: ml</span></div></div>
+<div class="c"><h2>ml/kg/24h nel tempo, calcolati ogni 10 min</h2><div id="ch"></div>
+<div class="lg"><span><i style="background:var(--a)"></i>somma mobile</span><span><i style="background:var(--b)"></i>smussata</span></div></div>
+
+<div class="c"><h2>ml nelle 24h, calcolati ogni 10 min</h2><div id="ch2"></div>
+<div class="lg"><span><i style="background:var(--a)"></i>somma mobile</span><span><i style="background:var(--b)"></i>smussata</span></div></div>
 
 <div class="c"><h2>ml per pasto nel tempo</h2><div id="ch5"></div>
 <div class="lg"><span><i style="background:var(--a)"></i>biberon</span><span><i style="background:var(--b)"></i>seno stimato</span></div></div>
@@ -260,22 +263,17 @@ function vlines(T0,T1,X,ya,yb,Hh){
   return V;
 }
 const hl=(y,x1,x2)=>'<line x1="'+x1+'" x2="'+x2+'" y1="'+y.toFixed(1)+'" y2="'+y.toFixed(1)+'" stroke="var(--mu)" stroke-opacity=".3"/>';
-// un solo grafico con due assi: ml/kg/24h a sinistra (linee continue), ml/24h a destra (tratteggio)
-function chart(M,bn,id){
-  if(M.length<2||!(wAt(M[0].t)>0)){$(id).innerHTML='<p class="wn" style="color:var(--mu)">Servono almeno 2 pasti e il peso.</p>';return}
-  const W=340,Hh=210,L=38,R=40,T1=M[M.length-1].t;let T0=M[0].t;
+function chart(M,bn,id,perKg){
+  const kg=t=>perKg?wAt(t):1;
+  if(M.length<2||!(kg(M[0].t)>0)){$(id).innerHTML='<p class="wn" style="color:var(--mu)">Servono almeno 2 pasti e il peso.</p>';return}
+  const W=340,Hh=190,L=38,R=8,T1=M[M.length-1].t;let T0=M[0].t;
   if(T1-T0>=24*H)T0+=24*H;T0=Math.max(T0,T1-168*H);
   const P=[];for(let t=T0;t<T1;t+=B)P.push(t);P.push(T1);
-  const A=P.map(t=>raw(M,t)),Bs=P.map(t=>smooth(bn,t)),Ak=A.map((v,i)=>v/wAt(P[i])),Bk=Bs.map((v,i)=>v/wAt(P[i]));
-  const nl=nice(Math.min(...Ak,...Bk)*.97,Math.max(...Ak,...Bk)*1.03,4),nr=nice(Math.min(...A,...Bs)*.97,Math.max(...A,...Bs)*1.03,4);
-  const X=t=>L+(t-T0)/(T1-T0||1)*(W-L-R),Yl=v=>Hh-20-(v-nl.lo)/(nl.hi-nl.lo||1)*(Hh-44),Yr=v=>Hh-20-(v-nr.lo)/(nr.hi-nr.lo||1)*(Hh-44);
-  const pl=(arr,Y,c,dash)=>'<polyline fill="none" stroke="var('+c+')" stroke-width="'+(dash?1.6:2)+'" stroke-linejoin="round" '+(dash?'stroke-dasharray="4 3" ':'')+'points="'+arr.map((v,i)=>X(P[i]).toFixed(1)+','+Y(v).toFixed(1)).join(' ')+'"/>';
-  let G='';
-  for(let v=nl.lo;v<=nl.hi+1e-9;v+=nl.st)G+=hl(Yl(v),L,W-R)+sx(L-4,Yl(v)+3,f0(v),'end');
-  for(let v=nr.lo;v<=nr.hi+1e-9;v+=nr.st)G+='<line x1="'+(W-R)+'" x2="'+(W-R+3)+'" y1="'+Yr(v).toFixed(1)+'" y2="'+Yr(v).toFixed(1)+'" stroke="var(--mu)"/>'+sx(W-R+5,Yr(v)+3,f0(v),'start');
-  $(id).innerHTML='<svg viewBox="0 0 '+W+' '+Hh+'">'+G+vlines(T0,T1,X,Yl(nl.hi),Yl(nl.lo),Hh)
-    +sx(L,12,'ml/kg/24h (continua)','start')+sx(W-R+8,12,'ml/24h (tratteggio)','end')
-    +pl(Ak,Yl,'--a')+pl(Bk,Yl,'--b')+pl(A,Yr,'--a',1)+pl(Bs,Yr,'--b',1)+'</svg>';
+  const A=P.map(t=>raw(M,t)/kg(t)),Bs=P.map(t=>smooth(bn,t)/kg(t)),n=nice(Math.min(...A,...Bs)*.97,Math.max(...A,...Bs)*1.03,5);
+  const X=t=>L+(t-T0)/(T1-T0||1)*(W-L-R),Y=v=>Hh-20-(v-n.lo)/(n.hi-n.lo||1)*(Hh-32);
+  const pl=(arr,c)=>'<polyline fill="none" stroke="var('+c+')" stroke-width="2" stroke-linejoin="round" points="'+arr.map((v,i)=>X(P[i]).toFixed(1)+','+Y(v).toFixed(1)).join(' ')+'"/>';
+  let G='';for(let v=n.lo;v<=n.hi+1e-9;v+=n.st)G+=hl(Y(v),L,W-R)+sx(L-4,Y(v)+3,f0(v),'end');
+  $(id).innerHTML='<svg viewBox="0 0 '+W+' '+Hh+'">'+G+vlines(T0,T1,X,Y(n.hi),Y(n.lo),Hh)+pl(A,'--a')+pl(Bs,'--b')+'</svg>';
 }
 function mealchart(id){
   const rs=S.rows.map(r=>({t:new Date(r.d+'T'+r.h).getTime(),b:+r.ml||0,s:(+r.min||0)*S.rate})).filter(r=>!isNaN(r.t)).sort((a,b)=>a.t-b.t);
@@ -301,7 +299,7 @@ function render(){
   $('bd').value=S.birth;{const m=S.ga.match(/^(\d+)\+(\d)$/);$('gw').value=m?m[1]:'';$('gd').value=m?m[2]:''}
   $('bd').disabled=$('gw').disabled=$('gd').disabled=!ED();
   const M=meals(),kg=M.length?wAt(M[M.length-1].t):0,pk=v=>kg?f0(v/kg)+' ml/kg/24h (peso '+(kg*1000).toFixed(0)+' g)':'inserisci il peso';
-  if(!M.length){['v0','v1','v2','v3'].forEach(i=>$(i).textContent='–');['k0','k1','k2','k3'].forEach(i=>$(i).textContent='');$('wn').textContent='';chart(M,{a:[]},'ch');mealchart('ch5')}
+  if(!M.length){['v0','v1','v2','v3'].forEach(i=>$(i).textContent='–');['k0','k1','k2','k3'].forEach(i=>$(i).textContent='');$('wn').textContent='';chart(M,{a:[]},'ch',1);chart(M,{a:[]},'ch2',0);mealchart('ch5')}
   else{
     const T=M[M.length-1].t,bn=bins(M),a=raw(M,T),b=smooth(bn,T),p=proj(M,+S.n);
     $('v1').textContent=f0(a)+' ml';$('k1').textContent=pk(a);
@@ -309,7 +307,7 @@ function render(){
     $('v3').textContent=p===null?'–':f0(p)+' ml';$('k3').textContent=p===null?'servono almeno 2 pasti':pk(p);
     const sp=(T-M[0].t)/H;
     $('wn').textContent=sp<24?'I dati coprono '+sp.toFixed(1).replace('.',',')+' h: le somme a 24h sono parziali, la proiezione è più indicativa. Calcoli riferiti all’ultimo pasto ('+fh(new Date(T))+').':'Calcoli riferiti all’ultimo pasto ('+fh(new Date(T))+'). Il primo pasto non entra nella versione smussata.';
-    lastMeal();chart(M,bn,'ch');mealchart('ch5');
+    lastMeal();chart(M,bn,'ch',1);chart(M,bn,'ch2',0);mealchart('ch5');
   }
   const last=S.rows.map((r,i)=>({r,i})).slice(-8).reverse();
   $('tb').innerHTML='<tr><th>Quando</th><th>ml</th><th>seno</th><th></th></tr>'+last.map(o=>'<tr><td>'+o.r.d.slice(5)+' '+o.r.h+'</td><td>'+(+o.r.ml||0)+'</td><td>'+(+o.r.min||0)+' min</td><td>'+(ED()?'<button data-i="'+o.i+'" aria-label="Elimina">×</button>':'')+'</td></tr>').join('');
