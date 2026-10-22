@@ -6,9 +6,9 @@
 <title>Alimentazione</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;800&display=swap">
 <style>
-:root{--bg:#eef3f6;--card:#fff;--tx:#1d2b36;--mu:#66788a;--a:#1f7a8c;--b:#7b4b94;--bd:#d9e3ea;--wn:#a35a00;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10181f;--card:#1a252e;--tx:#e8eff4;--mu:#8fa3b3;--a:#4fc0d6;--b:#c39bdb;--bd:#2c3b47;--wn:#f0b45a;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#10181f;--card:#1a252e;--tx:#e8eff4;--mu:#8fa3b3;--a:#4fc0d6;--b:#c39bdb;--bd:#2c3b47;--wn:#f0b45a;color-scheme:dark}
+:root{--bg:#eef3f6;--card:#fff;--tx:#1d2b36;--mu:#66788a;--a:#1f7a8c;--b:#7b4b94;--bd:#d9e3ea;--wn:#a35a00;--u:#d9a520;--f:#8a5a2b;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10181f;--card:#1a252e;--tx:#e8eff4;--mu:#8fa3b3;--a:#4fc0d6;--b:#c39bdb;--bd:#2c3b47;--wn:#f0b45a;--u:#f0c24a;--f:#c28a52;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10181f;--card:#1a252e;--tx:#e8eff4;--mu:#8fa3b3;--a:#4fc0d6;--b:#c39bdb;--bd:#2c3b47;--wn:#f0b45a;--u:#f0c24a;--f:#c28a52;color-scheme:dark}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 Figtree,system-ui,sans-serif;padding:16px;max-width:560px;margin-inline:auto}
 h1{font-size:26px;font-weight:800;margin:4px 0 12px}
@@ -33,6 +33,7 @@ td button{padding:2px 8px;background:transparent;color:var(--mu);border:1px soli
 svg{width:100%;height:auto;display:block}
 .lg{font-size:12px;color:var(--mu);display:flex;gap:14px;margin-top:4px}
 .lg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px}
+.ck{display:flex;align-items:center;gap:8px;color:var(--tx);font-size:16px}.ck input{width:22px;height:22px}
 .ed{display:none}body.edit .ed{display:block}details summary{cursor:pointer;font-weight:600}
 </style>
 </head>
@@ -49,6 +50,8 @@ svg{width:100%;height:auto;display:block}
 <p class="wn" id="wn"></p>
 <div class="g" style="margin-bottom:12px">
 <div class="c m w"><span>Ultimo pasto</span><b id="v0">–</b><span id="k0"></span></div>
+<div class="c m"><span>Ultima urina</span><b id="du" style="color:var(--u)">–</b><span id="dk1"></span></div>
+<div class="c m"><span>Ultime feci</span><b id="df" style="color:var(--f)">–</b><span id="dk2"></span></div>
 <div class="c m a"><span>Ultime 24h, somma mobile</span><b id="v1">–</b><span id="k1"></span></div>
 <div class="c m b"><span>Ultime 24h, smussate a 10 min</span><b id="v2">–</b><span id="k2"></span></div>
 <div class="c m w"><span>Proiezione sulle ultime 24h dai pasti recenti</span><b id="v3">–</b><span id="k3"></span></div>
@@ -62,6 +65,10 @@ svg{width:100%;height:auto;display:block}
 
 <div class="c"><h2>ml per pasto nel tempo</h2><div id="ch5"></div>
 <div class="lg"><span><i style="background:var(--a)"></i>biberon</span><span><i style="background:var(--b)"></i>seno stimato</span></div></div>
+
+<div class="c"><h2>Cambi pannolino nel tempo (conteggio ogni 3 ore)</h2><div id="ch6"></div>
+<div class="lg"><span><i style="background:var(--u)"></i>urina</span><span><i style="background:var(--f)"></i>feci</span></div>
+<table id="td" style="margin-top:8px"></table></div>
 
 <div class="c"><h2>Peso nel tempo, con curve di crescita</h2><div id="ch3"></div>
 <div class="lg"><span><i style="background:var(--b)"></i>pesate</span><span><i style="background:var(--a)"></i>Fenton 3°, 10°, 90°</span></div>
@@ -84,6 +91,13 @@ svg{width:100%;height:auto;display:block}
 <label>Ora<input id="wh" type="time"></label>
 <label class="w">Peso (g)<input id="wg" type="number" inputmode="numeric" placeholder="2390"></label>
 </div><div class="r"><button id="wadd">Aggiungi pesata</button></div></div>
+
+<div class="c ed"><h2>Cambio pannolino</h2><div class="g">
+<label>Data<input id="dd" type="date"></label>
+<label>Ora<input id="dh" type="time"></label>
+<label class="ck"><input id="pu" type="checkbox">Urina</label>
+<label class="ck"><input id="pf" type="checkbox">Feci</label>
+</div><div class="r"><button id="dadd">Aggiungi cambio</button></div></div>
 
 <div class="c ed"><h2>Nuovo pasto</h2><div class="g">
 <label>Data<input id="d" type="date"></label>
@@ -110,7 +124,7 @@ svg{width:100%;height:auto;display:block}
 
 <script>
 const K='feed.sync1',KT='feed.cfg',H=36e5,B=6e5,FILE='data.csv';
-let S={rows:[],kg:2.39,rate:1,n:6,w:[],birth:'',ga:''},CFG={repo:'',tok:''};
+let S={rows:[],kg:2.39,rate:1,n:6,w:[],dp:[],birth:'',ga:''},CFG={repo:'',tok:''};
 try{const x=localStorage.getItem(K);if(x)S=Object.assign(S,JSON.parse(x))}catch(e){}
 try{const x=localStorage.getItem(KT);if(x)CFG=Object.assign(CFG,JSON.parse(x))}catch(e){}
 const $=id=>document.getElementById(id);
@@ -121,7 +135,7 @@ if(!CFG.repo)CFG.repo=guessRepo();
 const ED=()=>!!(CFG.tok&&CFG.repo);
 const api=()=>'https://api.github.com/repos/'+CFG.repo+'/contents/'+FILE;
 const hd=raw=>{const o={Accept:raw?'application/vnd.github.raw+json':'application/vnd.github+json'};if(CFG.tok)o.Authorization='Bearer '+CFG.tok;return o};
-function toCsv(){return '#peso_kg='+S.kg+'\n#ml_per_min_seno='+S.rate+'\n#nascita='+(S.birth||'')+'\n#eg='+(S.ga||'')+'\n'+S.w.map(x=>'#peso,'+x.d+','+x.h+','+x.g).join('\n')+(S.w.length?'\n':'')+'data,ora,ml_biberon,min_seno\n'+S.rows.map(r=>[r.d,r.h,r.ml||0,r.min||0].join(',')).join('\n')+'\n'}
+function toCsv(){return '#peso_kg='+S.kg+'\n#ml_per_min_seno='+S.rate+'\n#nascita='+(S.birth||'')+'\n#eg='+(S.ga||'')+'\n'+S.w.map(x=>'#peso,'+x.d+','+x.h+','+x.g).join('\n')+(S.w.length?'\n':'')+S.dp.map(x=>'#pannolino,'+x.d+','+x.h+','+x.u+','+x.f).join('\n')+(S.dp.length?'\n':'')+'data,ora,ml_biberon,min_seno\n'+S.rows.map(r=>[r.d,r.h,r.ml||0,r.min||0].join(',')).join('\n')+'\n'}
 function fromCsv(t){
   const a=t.match(/^#peso_kg=([\d.,]+)/m),b=t.match(/^#ml_per_min_seno=([\d.,]+)/m);
   if(a)S.kg=parseFloat(a[1].replace(',','.'));if(b)S.rate=parseFloat(b[1].replace(',','.'));
@@ -129,6 +143,8 @@ function fromCsv(t){
   S.birth=nb?nb[1]:'';S.ga=eg?eg[1]:'';S.w=[];
   for(const m of t.matchAll(/^#peso,(\d{4}-\d{2}-\d{2}),(\d{2}:\d{2}),(\d+)/gm))S.w.push({d:m[1],h:m[2],g:+m[3]});
   S.w.sort((a,b)=>a.d+a.h<b.d+b.h?-1:1);
+  S.dp=[];for(const m of t.matchAll(/^#pannolino,(\d{4}-\d{2}-\d{2}),(\d{2}:\d{2}),([01]),([01])/gm))S.dp.push({d:m[1],h:m[2],u:+m[3],f:+m[4]});
+  S.dp.sort((a,b)=>a.d+a.h<b.d+b.h?-1:1);
   S.rows=parse(t.split(/\r?\n/).filter(l=>l[0]!=='#').join('\n'));sortRows();
 }
 let WK=[];
@@ -207,6 +223,31 @@ function wchart2(){
   $('ch4').innerHTML='<svg viewBox="0 0 '+W+' '+Hh+'">'+G+'<clipPath id="cp2"><rect x="'+L+'" y="0" width="'+(W-L-R)+'" height="'+(Hh-20)+'"/></clipPath><g clip-path="url(#cp2)">'+C+D+'</g>'+T+'<text x="'+L+'" y="10" font-size="9" fill="var(--mu)">kg</text></svg>';
   const z=V[V.length-1];
   $('wi2').textContent='Ultima pesata: '+z.g+' g a '+sg(z.a)+' settimane di età corretta'+(z.a<0?' (prima del termine: nessuna curva OMS)':'')+'.';
+}
+
+const dm=t=>{const d=new Date(t);return p2(d.getDate())+'/'+p2(d.getMonth()+1)};
+const agoTxt=t=>{const a=Math.max(0,Date.now()-t),hh=Math.floor(a/H),mm=Math.floor(a%H/6e4);return hh>=24?Math.floor(hh/24)+' g '+(hh%24)+' h fa':(hh?hh+' h ':'')+mm+' min fa'};
+function diaper(){
+  const E=S.dp.map((x,i)=>({i,t:new Date(x.d+'T'+x.h).getTime(),u:+x.u,f:+x.f,d:x.d,h:x.h})).filter(x=>!isNaN(x.t)).sort((a,b)=>a.t-b.t);
+  const set=(v,k,e)=>{$(v).textContent=e?e.h:'–';$(k).textContent=e?dm(e.t)+' · '+agoTxt(e.t):''};
+  set('du','dk1',E.filter(e=>e.u).pop());set('df','dk2',E.filter(e=>e.f).pop());
+  $('td').innerHTML=E.length?'<tr><th>Quando</th><th>Urina</th><th>Feci</th><th></th></tr>'+E.slice(-6).reverse().map(e=>'<tr><td>'+e.d.slice(5)+' '+e.h+'</td><td>'+(e.u?'●':'–')+'</td><td>'+(e.f?'●':'–')+'</td><td>'+(ED()?'<button data-dp="'+e.i+'" aria-label="Elimina">×</button>':'')+'</td></tr>').join(''):'';
+  if(!E.length){$('ch6').innerHTML='<p class="wn" style="color:var(--mu)">Nessun cambio inserito.</p>';return}
+  const nx=t=>{const d=new Date(t);return new Date(d.getFullYear(),d.getMonth(),d.getDate(),d.getHours()+3).getTime()};
+  const b3=t=>{const d=new Date(t);return new Date(d.getFullYear(),d.getMonth(),d.getDate(),Math.floor(d.getHours()/3)*3).getTime()};
+  const last=E[E.length-1].t;let T1=nx(b3(last));
+  let T0=b3(Math.max(E[0].t,T1-168*H));
+  const bins=[];for(let t=T0;t<T1;t=nx(t))bins.push({t,u:0,f:0});
+  const ends=bins.map((b,j)=>j+1<bins.length?bins[j+1].t:T1);
+  for(const e of E){const j=bins.findIndex((b,j)=>e.t>=b.t&&e.t<ends[j]);if(j>=0){bins[j].u+=e.u;bins[j].f+=e.f}}
+  const top=Math.max(2,...bins.map(b=>b.u+b.f)),st=top<=6?1:top<=12?2:5,hi=Math.ceil(top/st)*st;
+  const W=340,Hh=190,L=38,R=22,X=t=>L+(t-T0)/(T1-T0)*(W-L-R),Y=v=>Hh-20-v/hi*(Hh-32);
+  let G='';for(let v=0;v<=hi;v+=st)G+=hl(Y(v),L,W-R)+sx(L-4,Y(v)+3,v,'end');
+  const bars=bins.map((b,j)=>{const x=X(b.t)+1,w=Math.max(1,X(ends[j])-X(b.t)-2);let o='';
+    if(b.u)o+='<rect x="'+x.toFixed(1)+'" y="'+Y(b.u).toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+(Y(0)-Y(b.u)).toFixed(1)+'" fill="var(--u)"/>';
+    if(b.f)o+='<rect x="'+x.toFixed(1)+'" y="'+Y(b.u+b.f).toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+(Y(b.u)-Y(b.u+b.f)).toFixed(1)+'" fill="var(--f)"/>';
+    return o}).join('');
+  $('ch6').innerHTML='<svg viewBox="0 0 '+W+' '+Hh+'">'+G+vlines(T0,T1,X,Y(hi),Y(0),Hh)+bars+'</svg>';
 }
 let pend=0,q=Promise.resolve();
 async function load(){
@@ -311,10 +352,10 @@ function render(){
   }
   const last=S.rows.map((r,i)=>({r,i})).slice(-8).reverse();
   $('tb').innerHTML='<tr><th>Quando</th><th>ml</th><th>seno</th><th></th></tr>'+last.map(o=>'<tr><td>'+o.r.d.slice(5)+' '+o.r.h+'</td><td>'+(+o.r.ml||0)+'</td><td>'+(+o.r.min||0)+' min</td><td>'+(ED()?'<button data-i="'+o.i+'" aria-label="Elimina">×</button>':'')+'</td></tr>').join('');
-  wchart();wchart2();
+  wchart();wchart2();diaper();
 }
 function sortRows(){S.rows.sort((a,b)=>(a.d+a.h<b.d+b.h?-1:1))}
-function setNow(){const n=new Date();$('d').value=fd(n);$('h').value=fh(n);$('wd').value=fd(n);$('wh').value=fh(n)}
+function setNow(){const n=new Date();$('d').value=fd(n);$('h').value=fh(n);$('wd').value=fd(n);$('wh').value=fh(n);$('dd').value=fd(n);$('dh').value=fh(n)}
 function upd(){const k=+$('kg').value,r=+$('rt').value||0,ch=k!==S.kg||r!==S.rate;S.kg=k;S.rate=r;S.n=+$('n').value;cache();render();if(ch)commit('Aggiorna impostazioni')}
 ['kg','rt','n'].forEach(i=>$(i).addEventListener('change',upd));
 $('add').onclick=()=>{
@@ -349,6 +390,8 @@ $('wadd').onclick=()=>{const d=$('wd').value,t=$('wh').value,g=+$('wg').value;if
 $('tw').onclick=e=>{const i=e.target.dataset&&e.target.dataset.w;if(i===undefined)return;S.w.splice(+i,1);cache();render();commit('Elimina pesata')};
 const nbUp=()=>{const w=+$('gw').value,d=+$('gd').value||0;S.birth=$('bd').value;S.ga=(w>=22&&w<=42&&d>=0&&d<=6)?w+'+'+d:'';cache();render();commit('Aggiorna dati di nascita')};
 ['bd','gw','gd'].forEach(i=>$(i).addEventListener('change',nbUp));
+$('dadd').onclick=()=>{const d=$('dd').value,t=$('dh').value,u=$('pu').checked?1:0,f=$('pf').checked?1:0;if(!d||!t||!(u||f))return;S.dp.push({d,h:t,u,f});S.dp.sort((a,b)=>a.d+a.h<b.d+b.h?-1:1);cache();$('pu').checked=false;$('pf').checked=false;setNow();render();commit('Aggiungi cambio pannolino')};
+$('td').onclick=e=>{const i=e.target.dataset&&e.target.dataset.dp;if(i===undefined)return;S.dp.splice(+i,1);cache();render();commit('Elimina cambio pannolino')};
 $('ex').onclick=async()=>{const t=toCsv();$('csv').value=t;let ok=false;try{await navigator.clipboard.writeText(t);ok=true}catch(e){}$('csv').select();$('em').textContent=ok?'Copiato negli appunti.':'Seleziona il testo e copialo a mano.'};
 $('rp').value=CFG.repo;$('tk').value=CFG.tok;
 $('tkS').onclick=()=>{CFG.repo=$('rp').value.trim();CFG.tok=$('tk').value.trim();saveCfg();load()};
